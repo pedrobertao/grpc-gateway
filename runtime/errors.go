@@ -1,12 +1,13 @@
 package runtime
 
 import (
-	"context"
 	"io"
 	"net/http"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/status"
@@ -37,7 +38,6 @@ func HTTPStatusFromCode(code codes.Code) int {
 	case codes.ResourceExhausted:
 		return http.StatusTooManyRequests
 	case codes.FailedPrecondition:
-		// Note, this deliberately doesn't translate to the similarly named '412 Precondition Failed' HTTP response status.
 		return http.StatusBadRequest
 	case codes.Aborted:
 		return http.StatusConflict
@@ -53,7 +53,7 @@ func HTTPStatusFromCode(code codes.Code) int {
 		return http.StatusInternalServerError
 	}
 
-	grpclog.Infof("Unknown gRPC error code: %v", code)
+	grpclog.Printf("Unknown gRPC error code: %v", code)
 	return http.StatusInternalServerError
 }
 
@@ -66,12 +66,8 @@ var (
 )
 
 type errorBody struct {
-	Error string `protobuf:"bytes,100,name=error" json:"error"`
-	// This is to make the error more compatible with users that expect errors to be Status objects:
-	// https://github.com/grpc/grpc/blob/master/src/proto/grpc/status/status.proto
-	// It should be the exact same message as the Error field.
-	Code    int32      `protobuf:"varint,1,name=code" json:"code"`
-	Message string     `protobuf:"bytes,2,name=message" json:"message"`
+	Error   string     `protobuf:"bytes,1,name=error" json:"error"`
+	Code    int32      `protobuf:"varint,2,name=code" json:"code"`
 	Details []*any.Any `protobuf:"bytes,3,rep,name=details" json:"details,omitempty"`
 }
 
@@ -89,43 +85,43 @@ func (*errorBody) ProtoMessage()    {}
 func DefaultHTTPError(ctx context.Context, mux *ServeMux, marshaler Marshaler, w http.ResponseWriter, _ *http.Request, err error) {
 	const fallback = `{"error": "failed to marshal error message"}`
 
+	w.Header().Del("Trailer")
+	w.Header().Set("Content-Type", marshaler.ContentType())
+
 	s, ok := status.FromError(err)
 	if !ok {
 		s = status.New(codes.Unknown, err.Error())
 	}
 
-	w.Header().Del("Trailer")
-
-	contentType := marshaler.ContentType()
-	// Check marshaler on run time in order to keep backwards compatability
-	// An interface param needs to be added to the ContentType() function on
-	// the Marshal interface to be able to remove this check
-	if httpBodyMarshaler, ok := marshaler.(*HTTPBodyMarshaler); ok {
-		pb := s.Proto()
-		contentType = httpBodyMarshaler.ContentTypeFromMessage(pb)
-	}
-	w.Header().Set("Content-Type", contentType)
-
 	body := &errorBody{
-		Error:   s.Message(),
-		Message: s.Message(),
-		Code:    int32(s.Code()),
-		Details: s.Proto().GetDetails(),
+		Error: s.Message(),
+		Code:  int32(s.Code()),
+	}
+
+	for _, detail := range s.Details() {
+		if det, ok := detail.(proto.Message); ok {
+			a, err := ptypes.MarshalAny(det)
+			if err != nil {
+				grpclog.Printf("Failed to marshal any: %v", err)
+			} else {
+				body.Details = append(body.Details, a)
+			}
+		}
 	}
 
 	buf, merr := marshaler.Marshal(body)
 	if merr != nil {
-		grpclog.Infof("Failed to marshal error message %q: %v", body, merr)
+		grpclog.Printf("Failed to marshal error message %q: %v", body, merr)
 		w.WriteHeader(http.StatusInternalServerError)
 		if _, err := io.WriteString(w, fallback); err != nil {
-			grpclog.Infof("Failed to write response: %v", err)
+			grpclog.Printf("Failed to write response: %v", err)
 		}
 		return
 	}
 
 	md, ok := ServerMetadataFromContext(ctx)
 	if !ok {
-		grpclog.Infof("Failed to extract ServerMetadata from context")
+		grpclog.Printf("Failed to extract ServerMetadata from context")
 	}
 
 	handleForwardResponseServerMetadata(w, mux, md)
@@ -133,7 +129,7 @@ func DefaultHTTPError(ctx context.Context, mux *ServeMux, marshaler Marshaler, w
 	st := HTTPStatusFromCode(s.Code())
 	w.WriteHeader(st)
 	if _, err := w.Write(buf); err != nil {
-		grpclog.Infof("Failed to write response: %v", err)
+		grpclog.Printf("Failed to write response: %v", err)
 	}
 
 	handleForwardResponseTrailer(w, md)

@@ -5,7 +5,6 @@ package grpc.gateway.protoc_gen_swagger.options;
 option go_package = "github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger/options";
 
 import "google/protobuf/any.proto";
-import "google/protobuf/struct.proto";
 
 // `Swagger` is a representation of OpenAPI v2 specification's Swagger object.
 //
@@ -16,12 +15,6 @@ message Swagger {
   string swagger = 1;
   Info info = 2;
   string host = 3;
-  // `base_path` is the common prefix path used on all API endpoints (ie. /api, /v1, etc.). By adding this,
-  // it allows you to remove this portion from the path endpoints in your Swagger file making them easier
-  // to read. Note that using `base_path` does not change the endpoint paths that are generated in the resulting 
-  // Swagger file. If you wish to use `base_path` with relatively generated Swagger paths, the 
-  // `base_path` prefix must be manually removed from your `google.api.http` paths and your code changed to 
-  // serve the API from the `base_path`.
   string base_path = 4;
   enum SwaggerScheme {
     UNKNOWN = 0;
@@ -38,7 +31,8 @@ message Swagger {
   // field 9 is reserved for 'definitions', which at this time are already
   // exposed as and customizable as proto messages.
   reserved 9;
-  map<string, Response> responses = 10;
+  // field 10 is reserved for 'responses'.
+  reserved 10;
   SecurityDefinitions security_definitions = 11;
   repeated SecurityRequirement security = 12;
   // field 13 is reserved for 'tags', which are supposed to be exposed as and
@@ -46,7 +40,6 @@ message Swagger {
   // service objects into OpenAPI v2 Tag objects.
   reserved 13;
   ExternalDocumentation external_docs = 14;
-  map<string, google.protobuf.Value> extensions = 15;
 }
 
 // `Operation` is a representation of OpenAPI v2 specification's Operation object.
@@ -64,29 +57,11 @@ message Operation {
   repeated string produces = 7;
   // field 8 is reserved for 'parameters'.
   reserved 8;
-  map<string, Response> responses = 9;
+  // field 9 is reserved for 'responses'.
+  reserved 9;
   repeated string schemes = 10;
   bool deprecated = 11;
   repeated SecurityRequirement security = 12;
-  map<string, google.protobuf.Value> extensions = 13;
-}
-
-// `Response` is a representation of OpenAPI v2 specification's Response object.
-//
-// See: https://github.com/OAI/OpenAPI-Specification/blob/3.0.0/versions/2.0.md#responseObject
-//
-message Response {
-  // `Description` is a short description of the response.
-  // GFM syntax can be used for rich text representation.
-  string description = 1;
-  // `Schema` optionally defines the structure of the response.
-  // If `Schema` is not provided, it means there is no content to the response.
-  Schema schema = 2;
-  // field 3 is reserved for 'headers'.
-  reserved 3;
-  // field 3 is reserved for 'example'.
-  reserved 4;
-  map<string, google.protobuf.Value> extensions = 5;
 }
 
 // `Info` is a representation of OpenAPI v2 specification's Info object.
@@ -99,9 +74,9 @@ message Info {
   string description = 2;
   string terms_of_service = 3;
   Contact contact = 4;
-  License license = 5;
+  // field 5 is reserved for 'license'.
+  reserved 5;
   string version = 6;
-  map<string, google.protobuf.Value> extensions = 7;
 }
 
 // `Contact` is a representation of OpenAPI v2 specification's Contact object.
@@ -113,17 +88,6 @@ message Contact {
   string name = 1;
   string url = 2;
   string email = 3;
-}
-
-// `License` is a representation of OpenAPI v2 specification's License object.
-//
-// See: https://github.com/OAI/OpenAPI-Specification/blob/3.0.0/versions/2.0.md#licenseObject
-//
-message License {
-  // Required. The license name used for the API.
-  string name = 1;
-  // A URL to the license used for the API.
-  string url = 2;
 }
 
 // `ExternalDocumentation` is a representation of OpenAPI v2 specification's
@@ -168,19 +132,15 @@ message JSONSchema {
   reserved 1;
   // field 2 is reserved for '$schema', omitted from OpenAPI v2.
   reserved 2;
-  // Ref is used to define an external reference to include in the message.
-  // This could be a fully qualified proto message reference, and that type must be imported
-  // into the protofile. If no message is identified, the Ref will be used verbatim in
-  // the output.
-  // For example:
-  //  `ref: ".google.protobuf.Timestamp"`.
-  string ref = 3;
+  // field 3 is reserved for '$ref', although it is unclear how it would be used.
+  reserved 3;
   // field 4 is reserved for '$comment', omitted from OpenAPI v2.
   reserved 4;
   string title = 5;
   string description = 6;
   string default = 7;
-  bool read_only = 8;
+  // field 8 is reserved for 'readOnly', which has an OpenAPI v2-specific meaning and is defined there.
+  reserved 8;
   // field 9 is reserved for 'examples', which is omitted from OpenAPI v2 in favor of 'example' field.
   reserved 9;
   double multiple_of = 10;
@@ -339,7 +299,6 @@ message SecurityScheme {
   //
   // Valid for oauth2.
   Scopes scopes = 8;
-  map<string, google.protobuf.Value> extensions = 9;
 }
 
 // `SecurityRequirement` is a representation of OpenAPI v2 specification's
